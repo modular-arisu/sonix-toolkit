@@ -1,0 +1,8 @@
+Package: hidapi
+Version: 0.15.0
+Port-Version: 1
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 8e4dec76ec86b82ec3f1cdf6483a66428e733d38dac2be830136c917aa8fce8d
+Description: A Simple library for communicating with USB and Bluetooth HID devices on Linux, Mac and Windows.
