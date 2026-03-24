@@ -27,7 +27,7 @@ bool send_and_sync(hid_device* handle, const unsigned char* data) {
 
     // Send Set_Report
     if (hid_send_feature_report(handle, buf, 65) < 0) {
-        fprintf(stderr, "[%s] Send failed: %ls\n", "ERROR", hid_error(handle));
+        fprintf(stderr, "ERROR: Send failed: %ls\n", hid_error(handle));
         return false;
     }
 
@@ -35,7 +35,7 @@ bool send_and_sync(hid_device* handle, const unsigned char* data) {
 
     // Get Get_Report to sync
     if (hid_get_feature_report(handle, buf, 65) < 0) {
-        fprintf(stderr, "[%s] Read sync failed: %ls\n", "ERROR", hid_error(handle));
+        fprintf(stderr, "ERROR: Read sync failed: %ls\n", hid_error(handle));
         return false;
     }
 
@@ -54,7 +54,7 @@ void get_now(struct tm* result) {
 bool sync_time(const char* dev_path, struct tm* time_data) {
     hid_device* handle = hid_open_path(dev_path);
     if (!handle) {
-        std::cerr << "Failed to open device handle." << std::endl;
+        fprintf(stderr, "ERROR: Failed to open device handle.\n");
         return false;
     }
 
@@ -108,8 +108,8 @@ bool sync_time(const char* dev_path, struct tm* time_data) {
             time_data->tm_sec);
     }
     else {
-        std::cout << "failed" << std::endl;
-        std::cerr << "Sync failed during protocol steps." << std::endl;
+        printf("failed\n");
+        fprintf(stderr, "ERROR: Sync failed during protocol steps.\n");
     }
 
     hid_close(handle);
@@ -155,7 +155,7 @@ int main(int argc, char* argv[]) {
                 is_custom_datetime = true;
             }
             else {
-                std::cerr << "Invalid time format. Expected hh:mm:ss" << std::endl;
+                fprintf(stderr, "ERROR: Invalid time format. Expected hh:mm:ss\n");
                 return -1;
             }
         }
@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
                 is_custom_datetime = true;
             }
             else {
-                std::cerr << "Invalid date format. Expected yy-mm-dd" << std::endl;
+                fprintf(stderr, "ERROR: Invalid date format. Expected yyyy-mm-dd\n");
                 return -1;
             }
         }
@@ -175,10 +175,27 @@ int main(int argc, char* argv[]) {
         else if (arg == "--verbose" || arg == "-V") {
             is_verbose = true;
         }
+        else if (arg == "--help" || arg == "-h") {
+            printf("Usage: %s [options]\n\n", argv[0]);
+            printf("If no options are provided, the tool will automatically scan all HID devices,\n");
+            printf("match them against the internal compatibility list, and synchronize the time.\n\n");
+            printf("Options:\n");
+            printf("  -v, --vid <hex>      Override target Vendor ID (e.g. 0C45)\n");
+            printf("  -p, --pid <hex>      Override target Product ID (e.g. 800A)\n");
+            printf("  -d, --date <date>    Set custom date (yyyy-mm-dd)\n");
+            printf("  -t, --time <time>    Set custom time in 24h format (hh:mm:ss, e.g. 15:30:00)\n");
+            printf("  -V, --verbose        Enable detailed logging\n");
+            printf("  -h, --help           Show this help message\n\n");
+            printf("Notes:\n");
+            printf("  * By default, all matched devices in the supported list will be synchronized.\n");
+            printf("  * If you use --vid or --pid, the internal supported list will be ignored.\n");
+            printf("  * --date and --time must be used together if provided.\n");
+            return 0;
+        }
     }
 
     if (target_date.empty() != target_time.empty()) {
-        std::cerr << "Error: Both --date and --time must be provided together." << std::endl;
+        fprintf(stderr, "ERROR: Both --date and --time must be provided together.\n");
         return -1;
     }
 
@@ -200,25 +217,26 @@ int main(int argc, char* argv[]) {
             custom_tm.tm_sec = sec;
         }
         else {
-            std::cerr << "Failed to parse date or time string correctly." << std::endl;
+            fprintf(stderr, "ERROR: Failed to parse date or time string correctly.\n");
             return -1;
         }
     }
 
     if (hid_init()) {
-        std::cerr << "Failed to init hidapi library." << std::endl;
+        fprintf(stderr, "ERROR: Failed to init hidapi library.\n");
         return -1;
     }
 
     if (is_custom_path) {
-        std::cout << "Custom VID/PID provided:" << std::endl;
+        printf("Custom VID/PID provided:\n");
         printf("  Target VID: 0x%04X\n", target_vid);
         printf("  Target PID: 0x%04X\n", target_pid);
-        std::cout << "WARNING: This will override internal supported device VID and PID list.\n" << std::endl;
+        printf("WARNING: Internal supported device list will be ignored.\n");
+        printf("         Only devices matching the above VID/PID will be scanned.\n\n");
     }
 
     if (is_custom_datetime) {
-        std::cout << "Custom date and time provided:" << std::endl;
+        printf("Custom date and time provided:\n");
         printf("  %s %s\n\n", target_date.c_str(), target_time.c_str());
     }
 
@@ -228,7 +246,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<detected_device> detected_devices;
 
-    std::cout << "Detected devices:" << std::endl;
+    printf("Detected devices:\n");
 
     for (cur_dev = devs; cur_dev != nullptr; cur_dev = cur_dev->next) {
         bool is_supported = false;
@@ -272,7 +290,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::cout << std::endl << "Synchronizing time on detected devices..." << std::endl;
+    printf("\n");
+    printf("Synchronizing time on detected devices...\n");
 
     hid_free_enumeration(devs);
 
