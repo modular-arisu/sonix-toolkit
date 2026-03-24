@@ -1,6 +1,16 @@
 # sonix-toolkit
 Synchronize time of your Archon/AULA keyboard LCD
 
+### ⚠️ WARNING: USE AT YOUR OWN RISK!
+
+This tool is **NOT an official software**. It was developed through reverse engineering to mimic the original USB communication protocols. While every effort has been made to ensure accuracy, the following risks apply:
+
+1.  **NO WARRANTY**: This tool is provided "as-is." Use of this software may cause malfunctions, data loss, or permanent hardware damage.
+2.  **LCD-LESS KEYBOARD DANGER**: If you run this tool while a keyboard without an LCD (but sharing the same VID/PID) is connected, **there is a high probability of causing severe malfunction or bricking the device.**
+3.  **COMPATIBILITY**: This tool is specifically designed for keyboards with LCD screens. Do not attempt to use it on other models.
+
+**BY PROCEEDING, YOU ACKNOWLEDGE THESE RISKS. YOU HAVE BEEN WARNED.**
+
 ### Usage
 Launching without any arguments will automatically iterate through connected USB HID devices, look for compatible devices, and sync them.
 
