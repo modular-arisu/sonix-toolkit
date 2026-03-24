@@ -9,4 +9,9 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET sonix-toolkit PROPERTY CXX_STANDARD 20)
 endif()
 
+# Add and link required libraries
+find_package(hidapi CONFIG REQUIRED)
+
+target_link_libraries(sonix-toolkit PRIVATE hidapi::hidapi)
+
 # TODO: 필요한 경우 테스트를 추가하고 대상을 설치합니다.
