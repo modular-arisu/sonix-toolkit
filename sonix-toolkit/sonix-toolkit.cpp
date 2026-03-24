@@ -99,7 +99,7 @@ bool sync_time(const char* dev_path, struct tm* time_data) {
 
     // 4. Final Result
     if (success) {
-        printf("Sync Completed Successfully: %04d-%02d-%02d %02d:%02d:%02d\n",
+        printf("success (%04d-%02d-%02d %02d:%02d:%02d)\n",
             time_data->tm_year + 1900,
             time_data->tm_mon + 1,
             time_data->tm_mday,
@@ -108,6 +108,7 @@ bool sync_time(const char* dev_path, struct tm* time_data) {
             time_data->tm_sec);
     }
     else {
+        std::cout << "failed" << std::endl;
         std::cerr << "Sync failed during protocol steps." << std::endl;
     }
 
@@ -125,6 +126,7 @@ int main(int argc, char* argv[]) {
     std::string target_date = "";
     bool is_custom_path = false;
     bool is_custom_datetime = false;
+    bool is_verbose= false;
 
     // Regex patterns for validation
     // Time: hh:mm:ss (24h format)
@@ -169,6 +171,10 @@ int main(int argc, char* argv[]) {
                 return -1;
             }
         }
+        // 5. Verbose flag check (supports --verbose and -V)
+        else if (arg == "--verbose" || arg == "-V") {
+            is_verbose = true;
+        }
     }
 
     if (target_date.empty() != target_time.empty()) {
@@ -207,7 +213,8 @@ int main(int argc, char* argv[]) {
     if (is_custom_path) {
         std::cout << "Custom VID/PID provided:" << std::endl;
         printf("  Target VID: 0x%04X\n", target_vid);
-        printf("  Target PID: 0x%04X\n\n", target_pid);
+        printf("  Target PID: 0x%04X\n", target_pid);
+        std::cout << "WARNING: This will override internal supported device VID and PID list.\n" << std::endl;
     }
 
     if (is_custom_datetime) {
@@ -217,39 +224,68 @@ int main(int argc, char* argv[]) {
 
     struct hid_device_info* devs;
     struct hid_device_info* cur_dev;
-    devs = hid_enumerate(0x0, 0x0);
+    devs = hid_enumerate(target_vid, target_pid);
 
     std::vector<detected_device> detected_devices;
 
+    std::cout << "Detected devices:" << std::endl;
+
     for (cur_dev = devs; cur_dev != nullptr; cur_dev = cur_dev->next) {
-        for (const auto& supported : SUPPORTED_DEVICES) {
+        bool is_supported = false;
 
-            // Is on the supported device list
-            if (cur_dev->vendor_id == supported.vid && cur_dev->product_id == supported.pid) {
-
-                // Knock to see if interface is open to set/get feature
-                hid_device* handle = hid_open_path(cur_dev->path);
-                if (handle) {
-                    unsigned char probe_buf[65] = { 0 };
-                    if (hid_get_feature_report(handle, probe_buf, 65) > 0) {
-                        // Is open
-                        detected_device dd;
-                        dd.path = cur_dev->path;
-                        dd.vid = cur_dev->vendor_id;
-                        dd.pid = cur_dev->product_id;
-                        dd.model_name = supported.model_name;
-                        detected_devices.push_back(dd);
-                    }
-                    hid_close(handle);
+        if (is_custom_path) {
+            is_supported = true; // In custom mode, treat every found device as target
+        }
+        else {
+            // Check against internal whitelist
+            for (const auto& supported : SUPPORTED_DEVICES) {
+                if (cur_dev->vendor_id == supported.vid &&
+                    cur_dev->product_id == supported.pid) {
+                    is_supported = true;
+                    break;
                 }
+            }
+        }
+
+        if (is_supported) {
+            // Probe device to see if the interface is accessible
+            hid_device* handle = hid_open_path(cur_dev->path);
+            if (handle) {
+                unsigned char probe_buf[65] = { 0 };
+                // Attempt to get a feature report as a connectivity test
+                if (hid_get_feature_report(handle, probe_buf, 65) > 0) {
+                    detected_device dd;
+                    dd.path = cur_dev->path;
+                    dd.vid = cur_dev->vendor_id;
+                    dd.pid = cur_dev->product_id;
+                    detected_devices.push_back(dd);
+
+                    if (!is_verbose) {
+                        printf("  - VID: 0x%04X, PID: 0x%04X\n", dd.vid, dd.pid);
+                    }
+                    else {
+                        printf("  - Path: %s\n", dd.path.c_str());
+                    }
+                }
+                hid_close(handle);
             }
         }
     }
 
+    std::cout << std::endl << "Synchronizing time on detected devices..." << std::endl;
+
     hid_free_enumeration(devs);
 
     for (const auto& dev : detected_devices) {
-        std::cout << dev.path << std::endl;
+
+        if (!is_verbose) {
+            printf("  - Synchronizing VID: 0x%04X, PID: 0x%04X...",
+                dev.vid,
+                dev.pid);
+        }
+        else {
+            printf("  - Synchronizing Path: %s...", dev.path.c_str());
+        }
 
         struct tm time_data = { 0 };
 
